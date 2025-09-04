@@ -6,7 +6,7 @@ interface PricingData {
   domain: string
   planName: string
   price: string
-  features: string[]
+  pricingModel: string
   url: string
   scrapedAt: string
 }
@@ -227,26 +227,32 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
         if (planName !== 'Unknown Plan') break
       }
       
-      // Extract features (look for bullet points, checkmarks, etc.)
-      const features: string[] = []
-      const lines = text.split(/\n|•|✓|✔|→|▶|▪|▫/)
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && line.length < 200)
-        .slice(0, 8) // Limit to 8 features
-      
-      features.push(...lines)
-      
-      // Only add if we found meaningful information
-      if (price || planName !== 'Unknown Plan' || features.length > 0) {
-        results.push({
-          domain: new URL(url).hostname,
-          planName: planName,
-          price: price,
-          features: features,
-          url: url,
-          scrapedAt: new Date().toISOString()
-        })
-      }
+             // Extract pricing model (monthly, yearly, annual, one-time, etc.)
+       let pricingModel = 'Unknown'
+       const modelKeywords = [
+         'monthly', 'yearly', 'annual', 'one-time', 'one time', 'per month', 'per year',
+         'mensual', 'anual', 'mensuel', 'annuel', 'monatlich', 'jährlich', 'mensile', 'annuale',
+         '月額', '年額', '月费', '年费', '월간', '연간'
+       ]
+       
+       for (const keyword of modelKeywords) {
+         if (text.toLowerCase().includes(keyword)) {
+           pricingModel = keyword.charAt(0).toUpperCase() + keyword.slice(1)
+           break
+         }
+       }
+       
+       // Only add if we found meaningful information
+       if (price || planName !== 'Unknown Plan') {
+         results.push({
+           domain: new URL(url).hostname,
+           planName: planName,
+           price: price,
+           pricingModel: pricingModel,
+           url: url,
+           scrapedAt: new Date().toISOString()
+         })
+       }
     }
   })
   
@@ -318,14 +324,14 @@ export async function POST(request: NextRequest) {
           domainResults.push({
             domain: domainName,
             url: baseUrl,
-            plans: [{
-              domain: domainName,
-              planName: 'No pricing found',
-              price: 'N/A',
-              features: ['No pricing information detected on this website'],
-              url: baseUrl,
-              scrapedAt: scrapedAt
-            }],
+                       plans: [{
+             domain: domainName,
+             planName: 'No pricing found',
+             price: 'N/A',
+             pricingModel: 'Unknown',
+             url: baseUrl,
+             scrapedAt: scrapedAt
+           }],
             scrapedAt: scrapedAt,
             status: 'no_pricing'
           })
@@ -336,14 +342,14 @@ export async function POST(request: NextRequest) {
         domainResults.push({
           domain: domain,
           url: domain,
-          plans: [{
-            domain: domain,
-            planName: 'Error',
-            price: 'N/A',
-            features: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-            url: domain,
-            scrapedAt: new Date().toISOString()
-          }],
+                     plans: [{
+             domain: domain,
+             planName: 'Error',
+             price: 'N/A',
+             pricingModel: 'Unknown',
+             url: domain,
+             scrapedAt: new Date().toISOString()
+           }],
           scrapedAt: new Date().toISOString(),
           status: 'error',
           errorMessage: error instanceof Error ? error.message : 'Unknown error'

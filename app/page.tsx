@@ -7,7 +7,7 @@ interface PricingData {
   domain: string
   planName: string
   price: string
-  features: string[]
+  pricingModel: string
   url: string
   scrapedAt: string
 }
@@ -113,7 +113,7 @@ export default function Home() {
   const downloadCSV = () => {
     if (results.length === 0) return
 
-    const headers = ['Domain', 'Plan Name', 'Price', 'Features', 'URL', 'Scraped At']
+    const headers = ['Domain', 'Plan Name', 'Price', 'Pricing Model', 'URL']
     const csvContent = [
       headers.join(','),
       ...results.flatMap(domainResult => 
@@ -121,9 +121,8 @@ export default function Home() {
           domainResult.domain,
           `"${plan.planName}"`,
           plan.price,
-          `"${plan.features.join('; ')}"`,
-          plan.url,
-          plan.scrapedAt
+          plan.pricingModel,
+          plan.url
         ].join(','))
       )
     ].join('\n')
@@ -350,30 +349,19 @@ export default function Home() {
                             </div>
                           </div>
 
-                          {domainResult.plans.map((plan, planIndex) => (
-                            <div key={planIndex} className="mb-4 p-4 bg-dark-800 rounded-lg border border-dark-600">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-white text-lg">{plan.planName}</h4>
-                                <span className="text-xl font-bold text-primary-400">{plan.price}</span>
-                              </div>
-                              
-                              {plan.features.length > 0 && plan.features[0] !== 'No pricing information detected on this website' && (
-                                <div className="space-y-2">
-                                  {plan.features.slice(0, 5).map((feature, featureIndex) => (
-                                    <div key={featureIndex} className="text-sm text-gray-300 flex items-start">
-                                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                                      <span>{feature}</span>
-                                    </div>
-                                  ))}
-                                  {plan.features.length > 5 && (
-                                    <p className="text-xs text-gray-500 italic">
-                                      +{plan.features.length - 5} more features
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                                     {domainResult.plans.map((plan, planIndex) => (
+                             <div key={planIndex} className="mb-3 p-4 bg-dark-800 rounded-lg border border-dark-600">
+                               <div className="flex items-center justify-between">
+                                 <div className="flex-1">
+                                   <h4 className="font-semibold text-white text-lg">{plan.planName}</h4>
+                                   <p className="text-sm text-gray-400 mt-1">{plan.pricingModel}</p>
+                                 </div>
+                                 <div className="text-right ml-4">
+                                   <span className="text-xl font-bold text-primary-400">{plan.price}</span>
+                                 </div>
+                               </div>
+                             </div>
+                           ))}
 
                           {domainResult.errorMessage && (
                             <div className="mt-4 p-3 bg-red-900/20 border border-red-700 rounded-lg">
