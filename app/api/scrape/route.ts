@@ -103,7 +103,7 @@ async function findPricingPage(baseUrl: string): Promise<string[]> {
     console.error(`Error finding pricing pages for ${baseUrl}:`, error)
   }
   
-  return [...new Set(pricingUrls)] // Remove duplicates
+  return Array.from(new Set(pricingUrls)) // Remove duplicates
 }
 
 function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
