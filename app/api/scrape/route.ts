@@ -241,6 +241,13 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
   // Remove script and style elements
   $('script, style, noscript').remove()
   
+  // Pricing model keywords
+  const modelKeywords = [
+    'monthly', 'yearly', 'annual', 'one-time', 'one time', 'per month', 'per year',
+    'mensual', 'anual', 'mensuel', 'annuel', 'monatlich', 'jährlich', 'mensile', 'annuale',
+    '月額', '年額', '月费', '年费', '월간', '연간', 'kuukausi', 'vuosi', 'vuosittain' // Finnish
+  ]
+  
   // Common pricing selectors (more comprehensive)
   const pricingSelectors = [
     // Class-based selectors
@@ -418,15 +425,10 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
         }
       }
       
-      // Extract pricing model (monthly, yearly, annual, one-time, etc.)
-      let pricingModel = 'Unknown'
-      const modelKeywords = [
-        'monthly', 'yearly', 'annual', 'one-time', 'one time', 'per month', 'per year',
-        'mensual', 'anual', 'mensuel', 'annuel', 'monatlich', 'jährlich', 'mensile', 'annuale',
-        '月額', '年額', '月费', '年费', '월간', '연간', 'kuukausi', 'vuosi', 'vuosittain' // Finnish
-      ]
-      
-      for (const keyword of modelKeywords) {
+             // Extract pricing model (monthly, yearly, annual, one-time, etc.)
+       let pricingModel = 'Unknown'
+       
+       for (const keyword of modelKeywords) {
         if (text.toLowerCase().includes(keyword)) {
           pricingModel = keyword.charAt(0).toUpperCase() + keyword.slice(1)
           break
