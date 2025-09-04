@@ -6,7 +6,7 @@ interface PricingData {
   domain: string
   planName: string
   price: string
-  pricingModel: string
+  pricingModel: 'Per-User' | 'Tiered' | 'Usage-Based' | 'Freemium' | 'Custom' | 'Unknown'
   url: string
   scrapedAt: string
 }
@@ -241,11 +241,37 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
   // Remove script and style elements
   $('script, style, noscript').remove()
   
-  // Pricing model keywords
-  const modelKeywords = [
-    'monthly', 'yearly', 'annual', 'one-time', 'one time', 'per month', 'per year',
-    'mensual', 'anual', 'mensuel', 'annuel', 'monatlich', 'jährlich', 'mensile', 'annuale',
-    '月額', '年額', '月费', '年费', '월간', '연간', 'kuukausi', 'vuosi', 'vuosittain' // Finnish
+  // Pricing model detection keywords
+  const perUserKeywords = [
+    'per user', 'per seat', 'per person', 'per team member', 'per employee',
+    'user/month', 'seat/month', 'person/month', 'member/month',
+    'per gebruiker', 'per gebruiker', 'per utilisateur', 'per benutzer',
+    'per utente', 'per usuário', 'per пользователь', 'per ユーザー',
+    'per 用户', 'per 사용자', 'per käyttäjä'
+  ]
+  
+  const tieredKeywords = [
+    'tier', 'level', 'plan', 'package', 'bundle', 'starter', 'basic', 'pro', 'premium', 'enterprise',
+    'nivel', 'paquete', 'niveau', 'forfait', 'stufe', 'paket', 'livello', 'pacchetto',
+    'nível', 'pacote', 'уровень', 'пакет', 'レベル', 'パッケージ', '级别', '套餐', '레벨', '패키지', 'taso', 'paketti'
+  ]
+  
+  const usageBasedKeywords = [
+    'usage', 'consumption', 'pay as you go', 'pay per use', 'metered', 'billing',
+    'uso', 'consumo', 'utilisation', 'verbrauch', 'utilizzo', 'consumo',
+    'uso', 'consumo', 'использование', 'потребление', '使用量', '消費', '사용량', '소비', 'käyttö', 'kulutus'
+  ]
+  
+  const freemiumKeywords = [
+    'free', 'free tier', 'free plan', 'free forever', 'no cost', 'gratis',
+    'gratuito', 'gratis', 'gratuit', 'kostenlos', 'gratuito', 'gratuito',
+    'gratuito', 'бесплатно', '無料', '免费', '무료', 'ilmainen'
+  ]
+  
+  const customKeywords = [
+    'contact sales', 'contact us', 'custom pricing', 'enterprise pricing', 'call us',
+    'contactar ventas', 'contáctanos', 'contactez-nous', 'kontaktieren sie uns',
+    'contattaci', 'entre em contato', 'свяжитесь с нами', 'お問い合わせ', '联系我们', '문의하기', 'ota yhteyttä'
   ]
   
   // Common pricing selectors (more comprehensive)
@@ -425,15 +451,35 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
         }
       }
       
-             // Extract pricing model (monthly, yearly, annual, one-time, etc.)
-       let pricingModel = 'Unknown'
+                    // Determine pricing model based on keywords and price patterns
+       let pricingModel: 'Per-User' | 'Tiered' | 'Usage-Based' | 'Freemium' | 'Custom' | 'Unknown' = 'Unknown'
        
-       for (const keyword of modelKeywords) {
-        if (text.toLowerCase().includes(keyword)) {
-          pricingModel = keyword.charAt(0).toUpperCase() + keyword.slice(1)
-          break
-        }
-      }
+       const lowerText = text.toLowerCase()
+       
+       // Check for per-user pricing
+       if (perUserKeywords.some(keyword => lowerText.includes(keyword))) {
+         pricingModel = 'Per-User'
+       }
+       // Check for usage-based pricing
+       else if (usageBasedKeywords.some(keyword => lowerText.includes(keyword))) {
+         pricingModel = 'Usage-Based'
+       }
+       // Check for freemium (free plans)
+       else if (freemiumKeywords.some(keyword => lowerText.includes(keyword)) && 
+                (price.toLowerCase().includes('free') || price.toLowerCase().includes('$0') || price === '0')) {
+         pricingModel = 'Freemium'
+       }
+       // Check for custom pricing
+       else if (customKeywords.some(keyword => lowerText.includes(keyword)) || 
+                price.toLowerCase().includes('contact') || 
+                price.toLowerCase().includes('custom') ||
+                price.toLowerCase().includes('call')) {
+         pricingModel = 'Custom'
+       }
+       // Default to tiered if we have a clear price and plan name
+       else if (price && planName !== 'Unknown Plan') {
+         pricingModel = 'Tiered'
+       }
       
       // Only add if we found meaningful information
       if (price || planName !== 'Unknown Plan') {
@@ -500,14 +546,34 @@ function extractPricingInfo($: cheerio.CheerioAPI, url: string): PricingData[] {
             if (planName !== 'Unknown Plan') break
           }
           
-          // Extract pricing model
-          let pricingModel = 'Unknown'
-          for (const keyword of modelKeywords) {
-            if (line.toLowerCase().includes(keyword)) {
-              pricingModel = keyword.charAt(0).toUpperCase() + keyword.slice(1)
-              break
-            }
-          }
+                     // Determine pricing model for line-based extraction
+           let pricingModel: 'Per-User' | 'Tiered' | 'Usage-Based' | 'Freemium' | 'Custom' | 'Unknown' = 'Unknown'
+           const lowerLine = line.toLowerCase()
+           
+           // Check for per-user pricing
+           if (perUserKeywords.some(keyword => lowerLine.includes(keyword))) {
+             pricingModel = 'Per-User'
+           }
+           // Check for usage-based pricing
+           else if (usageBasedKeywords.some(keyword => lowerLine.includes(keyword))) {
+             pricingModel = 'Usage-Based'
+           }
+           // Check for freemium (free plans)
+           else if (freemiumKeywords.some(keyword => lowerLine.includes(keyword)) && 
+                    (price.toLowerCase().includes('free') || price.toLowerCase().includes('$0') || price === '0')) {
+             pricingModel = 'Freemium'
+           }
+           // Check for custom pricing
+           else if (customKeywords.some(keyword => lowerLine.includes(keyword)) || 
+                    price.toLowerCase().includes('contact') || 
+                    price.toLowerCase().includes('custom') ||
+                    price.toLowerCase().includes('call')) {
+             pricingModel = 'Custom'
+           }
+           // Default to tiered if we have a clear price and plan name
+           else if (price && planName !== 'Unknown Plan') {
+             pricingModel = 'Tiered'
+           }
           
           results.push({
             domain: new URL(url).hostname,

@@ -7,7 +7,7 @@ interface PricingData {
   domain: string
   planName: string
   price: string
-  pricingModel: string
+  pricingModel: 'Per-User' | 'Tiered' | 'Usage-Based' | 'Freemium' | 'Custom' | 'Unknown'
   url: string
   scrapedAt: string
 }
@@ -113,15 +113,13 @@ export default function Home() {
   const downloadCSV = () => {
     if (results.length === 0) return
 
-    const headers = ['Domain', 'Plan Name', 'Price', 'Pricing Model', 'URL']
+    const headers = ['Domain', 'Plan Name (Pricing Model): Price', 'URL']
     const csvContent = [
       headers.join(','),
       ...results.flatMap(domainResult => 
         domainResult.plans.map(plan => [
           domainResult.domain,
-          `"${plan.planName}"`,
-          plan.price,
-          plan.pricingModel,
+          `"${plan.planName} (${plan.pricingModel}): ${plan.price}"`,
           plan.url
         ].join(','))
       )
@@ -353,11 +351,9 @@ export default function Home() {
                              <div key={planIndex} className="mb-3 p-4 bg-dark-800 rounded-lg border border-dark-600">
                                <div className="flex items-center justify-between">
                                  <div className="flex-1">
-                                   <h4 className="font-semibold text-white text-lg">{plan.planName}</h4>
-                                   <p className="text-sm text-gray-400 mt-1">{plan.pricingModel}</p>
-                                 </div>
-                                 <div className="text-right ml-4">
-                                   <span className="text-xl font-bold text-primary-400">{plan.price}</span>
+                                   <h4 className="font-semibold text-white text-lg">
+                                     {plan.planName} ({plan.pricingModel}): {plan.price}
+                                   </h4>
                                  </div>
                                </div>
                              </div>
