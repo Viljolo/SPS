@@ -258,25 +258,22 @@ export default function Home() {
 
             {/* Summary */}
             {summary && (
-              <div className="card">
-                <h3 className="text-lg font-semibold text-white mb-4">Scraping Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary-400">{summary.totalDomains}</div>
-                    <div className="text-sm text-gray-400">Total Domains</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-400">{summary.successful}</div>
-                    <div className="text-sm text-gray-400">Successful</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-yellow-400">{summary.noPricing}</div>
-                    <div className="text-sm text-gray-400">No Pricing</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-red-400">{summary.errors}</div>
-                    <div className="text-sm text-gray-400">Errors</div>
-                  </div>
+              <div className="flex items-center justify-center space-x-6 py-4 bg-dark-800 rounded-lg">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-primary-400">{summary.totalDomains}</div>
+                  <div className="text-xs text-gray-400">Total</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-400">{summary.successful}</div>
+                  <div className="text-xs text-gray-400">Success</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-yellow-400">{summary.noPricing}</div>
+                  <div className="text-xs text-gray-400">No Pricing</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-red-400">{summary.errors}</div>
+                  <div className="text-xs text-gray-400">Errors</div>
                 </div>
               </div>
             )}
@@ -302,12 +299,12 @@ export default function Home() {
             {!isLoading && results.length > 0 && (
               <div className="space-y-4">
                 {/* Domain Tabs */}
-                <div className="flex flex-wrap gap-2 border-b border-dark-700">
+                <div className="flex flex-wrap gap-2">
                   {results.map((domainResult, index) => (
                     <button
                       key={domainResult.domain}
                       onClick={() => setActiveTab(domainResult.domain)}
-                      className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+                      className={`px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
                         activeTab === domainResult.domain
                           ? 'bg-primary-600 text-white'
                           : 'bg-dark-800 text-gray-300 hover:bg-dark-700'
@@ -336,7 +333,7 @@ export default function Home() {
                       .filter(r => r.domain === activeTab)
                       .map((domainResult, index) => (
                         <div key={index}>
-                          <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center justify-between mb-6">
                             <div>
                               <h3 className="text-xl font-semibold text-white">{domainResult.domain}</h3>
                               <p className="text-sm text-gray-400">{domainResult.url}</p>
@@ -354,41 +351,32 @@ export default function Home() {
                           </div>
 
                           {domainResult.plans.map((plan, planIndex) => (
-                            <div key={planIndex} className="mb-6 p-4 bg-dark-800 rounded-lg">
-                              <div className="flex items-start justify-between mb-3">
-                                <div>
-                                  <h4 className="font-semibold text-white">{plan.planName}</h4>
-                                  <p className="text-sm text-gray-400">{plan.url}</p>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-lg font-bold text-primary-400">{plan.price}</span>
-                                </div>
+                            <div key={planIndex} className="mb-4 p-4 bg-dark-800 rounded-lg border border-dark-600">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-white text-lg">{plan.planName}</h4>
+                                <span className="text-xl font-bold text-primary-400">{plan.price}</span>
                               </div>
                               
-                              {plan.features.length > 0 && (
-                                <div className="mt-3">
-                                  <h5 className="text-sm font-medium text-gray-300 mb-2">Features:</h5>
-                                  <ul className="space-y-1">
-                                    {plan.features.map((feature, featureIndex) => (
-                                      <li key={featureIndex} className="text-sm text-gray-400 flex items-center">
-                                        <CheckCircle className="w-3 h-3 text-green-500 mr-2 flex-shrink-0" />
-                                        {feature}
-                                      </li>
-                                    ))}
-                                  </ul>
+                              {plan.features.length > 0 && plan.features[0] !== 'No pricing information detected on this website' && (
+                                <div className="space-y-2">
+                                  {plan.features.slice(0, 5).map((feature, featureIndex) => (
+                                    <div key={featureIndex} className="text-sm text-gray-300 flex items-start">
+                                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                      <span>{feature}</span>
+                                    </div>
+                                  ))}
+                                  {plan.features.length > 5 && (
+                                    <p className="text-xs text-gray-500 italic">
+                                      +{plan.features.length - 5} more features
+                                    </p>
+                                  )}
                                 </div>
                               )}
-                              
-                              <div className="mt-3 pt-3 border-t border-dark-700">
-                                <p className="text-xs text-gray-500">
-                                  Scraped: {new Date(plan.scrapedAt).toLocaleString()}
-                                </p>
-                              </div>
                             </div>
                           ))}
 
                           {domainResult.errorMessage && (
-                            <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+                            <div className="mt-4 p-3 bg-red-900/20 border border-red-700 rounded-lg">
                               <p className="text-red-400 text-sm">{domainResult.errorMessage}</p>
                             </div>
                           )}
