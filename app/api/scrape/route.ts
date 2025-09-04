@@ -11,6 +11,15 @@ interface PricingData {
   scrapedAt: string
 }
 
+interface DomainResult {
+  domain: string
+  url: string
+  plans: PricingData[]
+  scrapedAt: string
+  status: 'success' | 'error' | 'no_pricing'
+  errorMessage?: string
+}
+
 // Common pricing-related keywords in multiple languages
 const PRICING_KEYWORDS = {
   en: ['pricing', 'price', 'plan', 'subscription', 'billing', 'cost', 'monthly', 'yearly', 'annual', 'premium', 'pro', 'basic', 'enterprise', 'starter', 'business', 'personal', 'team', 'individual'],
@@ -255,17 +264,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const results: PricingData[] = []
+    const domainResults: DomainResult[] = []
 
     for (const domain of domains) {
       try {
         const baseUrl = domain.startsWith('http') ? domain : `https://${domain}`
+        const domainName = new URL(baseUrl).hostname
+        const scrapedAt = new Date().toISOString()
         
         // First, try to find pricing pages
         const pricingUrls = await findPricingPage(baseUrl)
         
         // If no specific pricing pages found, use the root URL
         const urlsToScrape = pricingUrls.length > 0 ? pricingUrls : [baseUrl]
+        
+        const allPlans: PricingData[] = []
         
         for (const url of urlsToScrape) {
           try {
@@ -285,39 +298,68 @@ export async function POST(request: NextRequest) {
             const pricingData = extractPricingInfo($, url)
             
             if (pricingData.length > 0) {
-              results.push(...pricingData)
+              allPlans.push(...pricingData)
             }
           } catch (error) {
             console.error(`Error scraping ${url}:`, error)
           }
         }
         
-        // If no pricing found, add a basic entry
-        if (results.filter(r => r.domain === new URL(baseUrl).hostname).length === 0) {
-          results.push({
-            domain: new URL(baseUrl).hostname,
-            planName: 'No pricing found',
-            price: 'N/A',
-            features: ['No pricing information detected on this website'],
+        // Create domain result
+        if (allPlans.length > 0) {
+          domainResults.push({
+            domain: domainName,
             url: baseUrl,
-            scrapedAt: new Date().toISOString()
+            plans: allPlans,
+            scrapedAt: scrapedAt,
+            status: 'success'
+          })
+        } else {
+          domainResults.push({
+            domain: domainName,
+            url: baseUrl,
+            plans: [{
+              domain: domainName,
+              planName: 'No pricing found',
+              price: 'N/A',
+              features: ['No pricing information detected on this website'],
+              url: baseUrl,
+              scrapedAt: scrapedAt
+            }],
+            scrapedAt: scrapedAt,
+            status: 'no_pricing'
           })
         }
 
       } catch (error) {
         console.error(`Error processing ${domain}:`, error)
-        results.push({
+        domainResults.push({
           domain: domain,
-          planName: 'Error',
-          price: 'N/A',
-          features: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
           url: domain,
-          scrapedAt: new Date().toISOString()
+          plans: [{
+            domain: domain,
+            planName: 'Error',
+            price: 'N/A',
+            features: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+            url: domain,
+            scrapedAt: new Date().toISOString()
+          }],
+          scrapedAt: new Date().toISOString(),
+          status: 'error',
+          errorMessage: error instanceof Error ? error.message : 'Unknown error'
         })
       }
     }
 
-    return NextResponse.json({ results })
+    return NextResponse.json({ 
+      results: domainResults,
+      summary: {
+        totalDomains: domainResults.length,
+        successful: domainResults.filter(r => r.status === 'success').length,
+        noPricing: domainResults.filter(r => r.status === 'no_pricing').length,
+        errors: domainResults.filter(r => r.status === 'error').length
+      }
+    })
 
   } catch (error) {
     console.error('API Error:', error)

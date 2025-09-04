@@ -12,9 +12,27 @@ interface PricingData {
   scrapedAt: string
 }
 
+interface DomainResult {
+  domain: string
+  url: string
+  plans: PricingData[]
+  scrapedAt: string
+  status: 'success' | 'error' | 'no_pricing'
+  errorMessage?: string
+}
+
+interface ScrapingSummary {
+  totalDomains: number
+  successful: number
+  noPricing: number
+  errors: number
+}
+
 export default function Home() {
   const [domains, setDomains] = useState<string>('')
-  const [results, setResults] = useState<PricingData[]>([])
+  const [results, setResults] = useState<DomainResult[]>([])
+  const [summary, setSummary] = useState<ScrapingSummary | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +75,8 @@ export default function Home() {
     setIsLoading(true)
     setError('')
     setResults([])
+    setSummary(null)
+    setActiveTab('')
 
     try {
       const response = await fetch('/api/scrape', {
@@ -74,6 +94,15 @@ export default function Home() {
       }
 
       setResults(data.results)
+      setSummary(data.summary)
+      
+      // Set first successful domain as active tab
+      const firstSuccess = data.results.find((r: DomainResult) => r.status === 'success')
+      if (firstSuccess) {
+        setActiveTab(firstSuccess.domain)
+      } else if (data.results.length > 0) {
+        setActiveTab(data.results[0].domain)
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
@@ -87,14 +116,16 @@ export default function Home() {
     const headers = ['Domain', 'Plan Name', 'Price', 'Features', 'URL', 'Scraped At']
     const csvContent = [
       headers.join(','),
-      ...results.map(result => [
-        result.domain,
-        `"${result.planName}"`,
-        result.price,
-        `"${result.features.join('; ')}"`,
-        result.url,
-        result.scrapedAt
-      ].join(','))
+      ...results.flatMap(domainResult => 
+        domainResult.plans.map(plan => [
+          domainResult.domain,
+          `"${plan.planName}"`,
+          plan.price,
+          `"${plan.features.join('; ')}"`,
+          plan.url,
+          plan.scrapedAt
+        ].join(','))
+      )
     ].join('\n')
 
     const blob = new Blob([csvContent], { type: 'text/csv' })
@@ -225,6 +256,31 @@ export default function Home() {
               )}
             </div>
 
+            {/* Summary */}
+            {summary && (
+              <div className="card">
+                <h3 className="text-lg font-semibold text-white mb-4">Scraping Summary</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary-400">{summary.totalDomains}</div>
+                    <div className="text-sm text-gray-400">Total Domains</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">{summary.successful}</div>
+                    <div className="text-sm text-gray-400">Successful</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-yellow-400">{summary.noPricing}</div>
+                    <div className="text-sm text-gray-400">No Pricing</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-400">{summary.errors}</div>
+                    <div className="text-sm text-gray-400">Errors</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isLoading && (
               <div className="card">
                 <div className="flex items-center justify-center py-8">
@@ -245,40 +301,101 @@ export default function Home() {
 
             {!isLoading && results.length > 0 && (
               <div className="space-y-4">
-                {results.map((result, index) => (
-                  <div key={index} className="card">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold text-white">{result.domain}</h3>
-                        <p className="text-sm text-gray-400">{result.url}</p>
+                {/* Domain Tabs */}
+                <div className="flex flex-wrap gap-2 border-b border-dark-700">
+                  {results.map((domainResult, index) => (
+                    <button
+                      key={domainResult.domain}
+                      onClick={() => setActiveTab(domainResult.domain)}
+                      className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+                        activeTab === domainResult.domain
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-dark-800 text-gray-300 hover:bg-dark-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span>{domainResult.domain}</span>
+                        {domainResult.status === 'success' && (
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        )}
+                        {domainResult.status === 'no_pricing' && (
+                          <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                        )}
+                        {domainResult.status === 'error' && (
+                          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <span className="text-lg font-bold text-primary-400">{result.price}</span>
-                        <p className="text-sm text-gray-400">{result.planName}</p>
-                      </div>
-                    </div>
-                    
-                    {result.features.length > 0 && (
-                      <div className="mt-3">
-                        <h4 className="text-sm font-medium text-gray-300 mb-2">Features:</h4>
-                        <ul className="space-y-1">
-                          {result.features.map((feature, featureIndex) => (
-                            <li key={featureIndex} className="text-sm text-gray-400 flex items-center">
-                              <CheckCircle className="w-3 h-3 text-green-500 mr-2 flex-shrink-0" />
-                              {feature}
-                            </li>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Active Domain Content */}
+                {activeTab && (
+                  <div className="card">
+                    {results
+                      .filter(r => r.domain === activeTab)
+                      .map((domainResult, index) => (
+                        <div key={index}>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className="text-xl font-semibold text-white">{domainResult.domain}</h3>
+                              <p className="text-sm text-gray-400">{domainResult.url}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                domainResult.status === 'success' ? 'bg-green-900 text-green-300' :
+                                domainResult.status === 'no_pricing' ? 'bg-yellow-900 text-yellow-300' :
+                                'bg-red-900 text-red-300'
+                              }`}>
+                                {domainResult.status === 'success' ? 'Success' :
+                                 domainResult.status === 'no_pricing' ? 'No Pricing' : 'Error'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {domainResult.plans.map((plan, planIndex) => (
+                            <div key={planIndex} className="mb-6 p-4 bg-dark-800 rounded-lg">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="font-semibold text-white">{plan.planName}</h4>
+                                  <p className="text-sm text-gray-400">{plan.url}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-lg font-bold text-primary-400">{plan.price}</span>
+                                </div>
+                              </div>
+                              
+                              {plan.features.length > 0 && (
+                                <div className="mt-3">
+                                  <h5 className="text-sm font-medium text-gray-300 mb-2">Features:</h5>
+                                  <ul className="space-y-1">
+                                    {plan.features.map((feature, featureIndex) => (
+                                      <li key={featureIndex} className="text-sm text-gray-400 flex items-center">
+                                        <CheckCircle className="w-3 h-3 text-green-500 mr-2 flex-shrink-0" />
+                                        {feature}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              <div className="mt-3 pt-3 border-t border-dark-700">
+                                <p className="text-xs text-gray-500">
+                                  Scraped: {new Date(plan.scrapedAt).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
                           ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    <div className="mt-3 pt-3 border-t border-dark-700">
-                      <p className="text-xs text-gray-500">
-                        Scraped: {new Date(result.scrapedAt).toLocaleString()}
-                      </p>
-                    </div>
+
+                          {domainResult.errorMessage && (
+                            <div className="mt-4 p-4 bg-red-900/20 border border-red-700 rounded-lg">
+                              <p className="text-red-400 text-sm">{domainResult.errorMessage}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
